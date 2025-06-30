@@ -1,0 +1,12 @@
+openai>=1.0.0
+pandas
+numpy
+tqdm
+requests
+jinja2
+
+[dev]
+pytest
+black
+isort
+mypy

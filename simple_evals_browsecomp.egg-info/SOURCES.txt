@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+setup.cfg
+./sampler/__init__.py
+./sampler/chat_completion_sampler.py
+simple_evals_browsecomp.egg-info/PKG-INFO
+simple_evals_browsecomp.egg-info/SOURCES.txt
+simple_evals_browsecomp.egg-info/dependency_links.txt
+simple_evals_browsecomp.egg-info/entry_points.txt
+simple_evals_browsecomp.egg-info/requires.txt
+simple_evals_browsecomp.egg-info/top_level.txt

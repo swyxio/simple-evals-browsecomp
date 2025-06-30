@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simple-evals-browsecomp"
+version = "0.1.0"
+description = "A simplified version of simple-evals with only the BrowseComp evaluation"
+requires-python = ">=3.8"
+dependencies = [
+    "openai>=1.0.0",
+    "pandas",
+    "numpy",
+    "tqdm",
+    "requests",
+    "jinja2"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "isort",
+    "mypy"
+]
+
+[project.scripts]
+simple-evals = "simple_evals:main"
