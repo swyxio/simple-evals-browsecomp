@@ -64,7 +64,8 @@ def decrypt(ciphertext_b64: str, password: str) -> str:
 
 
 class BrowseCompEval(Eval):
-    def __init__(self, grader_model: SamplerBase, num_examples: int | None = None, n_repeats: int = 1):
+    def __init__(self, grader_model: SamplerBase, num_examples: int = 10, n_repeats: int = 1):
+        # Load the dataset
         df = pandas.read_csv(
             "https://openaipublic.blob.core.windows.net/simple-evals/browse_comp_test_set.csv"
         )
@@ -73,10 +74,25 @@ class BrowseCompEval(Eval):
             assert n_repeats == 1, "n_repeats only supported when max_examples = None"
             rng = random.Random(0)
             examples = rng.sample(examples, num_examples)
+        
         self.examples = examples * n_repeats
         self.grader_model = grader_model
+        self.token_counter = None  # Will be initialized when tracking is enabled
 
-    def grade_sample(self, question: str, correct_answer: str, response: str) -> str:
+    def grade_sample(self, question: str, correct_answer: str, response: str) -> tuple[str, str]:
+        """
+        Grade a sample response and return both the grade result and the full grading response.
+        
+        Args:
+            question: The question being evaluated
+            correct_answer: The correct answer to the question
+            response: The model's response to evaluate
+            
+        Returns:
+            A tuple of (grade_result, full_response) where:
+            - grade_result: "yes" if the response is correct, "no" otherwise
+            - full_response: The complete grading response from the grader model
+        """
         grader_prompt = GRADER_TEMPLATE.format(
             question=question,
             correct_answer=correct_answer,
@@ -86,23 +102,86 @@ class BrowseCompEval(Eval):
         prompt_messages = [
             self.grader_model._pack_message(content=grader_prompt, role="user")
         ]
-        sampler_response = self.grader_model(prompt_messages)
-        grading_response = sampler_response.response_text
-
-        match = re.search(r"correct: (yes|no)", grading_response)
-        return match.group(0) if match else "no"  # Default to "no" if no match
+        
+        try:
+            sampler_response = self.grader_model(prompt_messages)
+            grading_response = sampler_response.response_text
+            
+            # Debug logging
+            print("\n=== GRADER RESPONSE ===")
+            print(grading_response)
+            print("=====================\n")
+            
+            # Look for the correct pattern in the response
+            match = re.search(r"correct:\s*(yes|no)", grading_response, re.IGNORECASE)
+            if match:
+                return match.group(1).lower(), grading_response
+                
+            # If the above pattern didn't match, try alternative patterns
+            if "yes" in grading_response.lower():
+                return "yes", grading_response
+                
+            return "no", grading_response  # Default to "no" if no clear positive match
+            
+        except Exception as e:
+            error_msg = f"Error in grade_sample: {str(e)}"
+            print(error_msg)
+            if 'grading_response' in locals():
+                print(f"Response: {grading_response}")
+                return "no", f"{error_msg}\n\nGrading response:\n{grading_response}"
+            return "no", error_msg  # Default to "no" on error with error message
 
     def __call__(self, sampler: SamplerBase) -> EvalResult:
+            # Initialize token counter if tracking is enabled
+            if hasattr(sampler, 'track_tokens') and sampler.track_tokens:
+                sampler.token_counter = TokenCounter(sampler.model_name)
+                self.token_counter = sampler.token_counter  # Store reference for later use
+                
             def fn(row: dict):
                 problem = decrypt(row.get("problem", ""), row.get("canary", ""))
                 answer = decrypt(row.get("answer", ""), row.get("canary", ""))
+                
+                # Prepare prompt
+                prompt = QUERY_TEMPLATE.format(Question=problem)
                 prompt_messages = [
-                    sampler._pack_message(content=QUERY_TEMPLATE.format(Question=problem), role="user")
+                    sampler._pack_message(content=prompt, role="user")
                 ]
+                
+                # Count input tokens if tracking is enabled
+                if hasattr(sampler, 'token_counter') and sampler.token_counter is not None:
+                    input_tokens = sampler.token_counter.add_input(prompt)
+                    if hasattr(sampler, 'system_message'):
+                        sampler.token_counter.add_input(sampler.system_message)
+                
+                # Get model response
                 sampler_response = sampler(prompt_messages)
                 response_text = sampler_response.response_text
+                
+                # Count output tokens if tracking is enabled
+                if hasattr(sampler, 'token_counter') and sampler.token_counter is not None:
+                    output_tokens = sampler.token_counter.add_output(response_text)
+                    
+                    # Log token usage for this request if available in response
+                    if hasattr(sampler_response, 'usage'):
+                        usage = getattr(sampler_response, 'usage', {})
+                        print(f"\n=== TOKEN USAGE ===")
+                        print(f"Input tokens: {usage.get('prompt_tokens', 'N/A')}")
+                        print(f"Output tokens: {usage.get('completion_tokens', 'N/A')}")
+                        print(f"Total tokens: {usage.get('total_tokens', 'N/A')}")
+                        
+                        # Update token counter with actual usage if available
+                        if all(k in usage for k in ['prompt_tokens', 'completion_tokens']):
+                            sampler.token_counter.input_tokens = usage['prompt_tokens']
+                            sampler.token_counter.output_tokens = usage['completion_tokens']
+                    else:
+                        print(f"\n=== ESTIMATED TOKEN USAGE ===")
+                        print(f"Input tokens: {output_tokens[0]}")
+                        print(f"Output tokens: {output_tokens[1]}")
+                        print(f"Total tokens: {output_tokens[0] + output_tokens[1]}")
+                
                 actual_queried_prompt_messages = sampler_response.actual_queried_message_list
-                grade_result = self.grade_sample(problem, answer, response_text)
+                # Get both the grade result and the full grading response
+                grade_result, grading_response = self.grade_sample(problem, answer, response_text)
 
                 # Metrics based on grading response
                 is_correct = grade_result == "yes"
@@ -110,6 +189,82 @@ class BrowseCompEval(Eval):
                 
                 score = is_correct
 
+                # Get token usage if available
+                token_usage = None
+                if hasattr(sampler, 'token_counter') and sampler.token_counter is not None:
+                    token_usage = sampler.token_counter.get_usage()
+                
+                # Extract search queries and results if available
+                search_data = []
+                tool_calls = getattr(sampler_response, 'tool_calls', None) or []
+                output = getattr(sampler_response, 'output', {})
+                
+                print(f"Processing response with {len(tool_calls)} tool calls and output: {output}")
+                
+                # Check for search results in the output
+                if isinstance(output, dict):
+                    # Handle search results from the output
+                    if 'search_results' in output and isinstance(output['search_results'], list):
+                        print(f"Found {len(output['search_results'])} search results in output")
+                        
+                        for search_result in output['search_results']:
+                            if not isinstance(search_result, dict):
+                                continue
+                                
+                            search_entry = {
+                                'query': search_result.get('query', 'Unknown query'),
+                                'status': search_result.get('status', 'completed'),
+                                'results': []
+                            }
+                            
+                            # Add any results if available
+                            if 'results' in search_result and isinstance(search_result['results'], list):
+                                for result in search_result['results']:
+                                    if isinstance(result, dict):
+                                        search_entry['results'].append({
+                                            'title': result.get('title', 'No title'),
+                                            'url': result.get('url', '#')
+                                        })
+                            
+                            search_data.append(search_entry)
+                    
+                    # Also check for tool calls in the output for backward compatibility
+                    if 'tool_calls' in output and isinstance(output['tool_calls'], list):
+                        print(f"Found {len(output['tool_calls'])} tool calls in output")
+                        for i, tool_call in enumerate(output['tool_calls']):
+                            print(f"Processing output tool call {i}: {tool_call}")
+                            if tool_call.get('type') == 'web_search_preview':
+                                # Create or update search entry
+                                if not search_data:
+                                    search_data.append({
+                                        'query': tool_call.get('input', {}).get('query', 'Unknown query'),
+                                        'status': 'completed',
+                                        'results': []
+                                    })
+                                
+                                # Add results if available
+                                if 'output' in tool_call and isinstance(tool_call['output'], list):
+                                    for result in tool_call['output']:
+                                        if isinstance(result, dict):
+                                            search_data[-1]['results'].append({
+                                                'title': result.get('title', 'No title'),
+                                                'url': result.get('url', '#')
+                                            })
+                
+                print(f"Final search data: {search_data}")  # Debug
+                
+                # Add any additional results from the output
+                if isinstance(output, dict) and 'tool_calls' in output:
+                    for tool_call in output['tool_calls']:
+                        if tool_call.get('type') == 'web_search_preview' and 'output' in tool_call:
+                            if isinstance(tool_call['output'], list):
+                                for result in tool_call['output']:
+                                    if isinstance(result, dict):
+                                        search_data[-1]['results'].append({
+                                            'title': result.get('title', 'No title'),
+                                            'url': result.get('url', '#')
+                                        })
+                
                 # Create HTML for each sample result
                 html = common.jinja_env.from_string(common.HTML_JINJA).render(
                     prompt_messages=actual_queried_prompt_messages,
@@ -117,29 +272,64 @@ class BrowseCompEval(Eval):
                     score=score,
                     correct_answer=row["answer"],
                     extracted_answer=response_text,
+                    grader_response=grading_response,
+                    token_usage=token_usage,
+                    search_data=search_data,
                 )
-                convo = actual_queried_prompt_messages + [dict(content=response_text, role="assistant")]
-                return SingleEvalResult(html=html, score=score, convo=convo, metrics={
+                
+                metrics = {
                     "is_correct": is_correct,
                     "is_incorrect": is_incorrect,
-                })
+                }
+                
+                # Add token usage to metrics if tracking is enabled
+                if hasattr(sampler, 'token_counter') and sampler.token_counter is not None:
+                    token_usage = sampler.token_counter.get_usage()
+                    metrics.update({
+                        "input_tokens": token_usage.get("input_tokens"),
+                        "output_tokens": token_usage.get("output_tokens"),
+                        "total_tokens": token_usage.get("total_tokens"),
+                        "estimated_cost": token_usage.get("estimated_cost")
+                    })
+                
+                convo = actual_queried_prompt_messages + [dict(content=response_text, role="assistant")]
+                return SingleEvalResult(html=html, score=score, convo=convo, metrics=metrics)
 
             # Run evaluation and collect results
             results = common.map_with_progress(fn, self.examples)
+            
+            # Debug: Print individual results
+            print("\n=== INDIVIDUAL RESULTS ===")
+            for i, result in enumerate(results):
+                print(f"Result {i+1}:")
+                print(f"  Score: {result.score}")
+                print(f"  Metrics: {result.metrics}")
+                print(f"  First 100 chars of response: {result.convo[-1]['content'][:100]}...\n")
 
             # Aggregate metrics
+            total = len(results)
+            correct = sum(1 for r in results if r.metrics["is_correct"])
+            incorrect = total - correct
+            
             aggregate_metrics = {
-                "is_correct": sum(result.metrics["is_correct"] for result in results) / len(results),
-                "is_incorrect": sum(result.metrics["is_incorrect"] for result in results) / len(results),
+                "is_correct": correct / total if total > 0 else 0.0,
+                "is_incorrect": incorrect / total if total > 0 else 0.0,
+                "total_samples": total,
+                "correct_count": correct,
+                "incorrect_count": incorrect,
             }
-            print("AGGREGATE METRICS") 
-            print(aggregate_metrics) 
-            print("##################")
+            
+            print("\n=== AGGREGATE METRICS ===") 
+            for k, v in aggregate_metrics.items():
+                print(f"{k}: {v}")
+            print("########################\n")
 
             output_d = {
                 "accuracy": aggregate_metrics["is_correct"],
+                "total_samples": aggregate_metrics["total_samples"],
+                "correct_count": aggregate_metrics["correct_count"],
             }
             
-            print(f"Accuracy: {output_d['accuracy']:.3f}")
+            print(f"Final Accuracy: {output_d['accuracy']:.3f} ({output_d['correct_count']}/{output_d['total_samples']})")
             
             return common.aggregate_results(results)

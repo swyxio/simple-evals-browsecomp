@@ -144,9 +144,187 @@ HTML_JINJA = """
 <h3>Sampled message</h3>
 {{ message_to_html(next_message) | safe }}
 <h3>Results</h3>
-<p>Correct Answer: {{ correct_answer }}</p>
-<p>Extracted Answer: {{ extracted_answer }}</p>
-<p>Score: {{ score }}</p>
+<div class="results-grid">
+    <div class="result-item">
+        <span class="result-label">Correct Answer:</span>
+        <span class="result-value">{{ correct_answer }}</span>
+    </div>
+    <div class="result-item">
+        <span class="result-label">Extracted Answer:</span>
+        <span class="result-value">{{ extracted_answer }}</span>
+    </div>
+    <div class="result-item">
+        <span class="result-label">Score:</span>
+        <span class="result-value">{{ score }}</span>
+    </div>
+</div>
+
+{% if grader_response %}
+<div class="grader-response">
+    <h3>Grader Response</h3>
+    <div class="grader-response-content">
+        <pre>{{ grader_response }}</pre>
+    </div>
+</div>
+{% endif %}
+
+{% if search_data %}
+<div class="search-results section">
+    <h3 class="section-title">Search Activity</h3>
+    {% for search in search_data %}
+    <div class="search-query">
+        🔍 "{{ search.query }}" 
+        <span style="font-size: 0.8em; color: #7f8c8d;">({{ search.status }})</span>
+    </div>
+    <div class="search-results-content">
+        {% if search.results %}
+            {% for result in search.results %}
+            <div class="search-result">
+                <div class="search-result-title">{{ result.title }}</div>
+                <div class="search-result-url">{{ result.url }}</div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-results">No search results available</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if token_usage %}
+<div class="token-usage section">
+    <h3 class="section-title">Token Usage</h3>
+    <div class="token-usage-content">
+        <div class="token-stats">
+            <div class="token-stat">
+                <span class="token-stat-label">Model:</span>
+                <span class="token-stat-value">{{ token_usage.model }}</span>
+            </div>
+            <div class="token-stat">
+                <span class="token-stat-label">Input Tokens:</span>
+                <span class="token-stat-value">{{ "{:,}".format(token_usage.input_tokens) }}</span>
+            </div>
+            <div class="token-stat">
+                <span class="token-stat-label">Output Tokens:</span>
+                <span class="token-stat-value">{{ "{:,}".format(token_usage.output_tokens) }}</span>
+            </div>
+            <div class="token-stat">
+                <span class="token-stat-label">Total Tokens:</span>
+                <span class="token-stat-value">{{ "{:,}".format(token_usage.total_tokens) }}</span>
+            </div>
+            <div class="token-stat">
+                <span class="token-stat-label">Estimated Cost:</span>
+                <span class="token-stat-value">${{ "{:.6f}".format(token_usage.estimated_cost) }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+    .section {
+        margin-bottom: 20px;
+    }
+    .section-title {
+        font-size: 1.2em;
+        color: #2c3e50;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 5px;
+        margin: 25px 0 15px 0;
+    }
+    .results-grid {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 8px 16px;
+        margin: 15px 0;
+    }
+    .result-item {
+        display: contents;
+    }
+    .result-label {
+        font-weight: bold;
+        color: #333;
+        white-space: nowrap;
+    }
+    .result-value {
+        font-family: monospace;
+        word-break: break-word;
+    }
+    .grader-response, .token-usage, .search-results {
+        margin-top: 20px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 10px;
+        background-color: #f9f9f9;
+    }
+    .grader-response h3, .token-usage h3, .search-results h3 {
+        margin-top: 0;
+        color: #333;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 5px;
+    }
+    .token-usage-content, 
+    .grader-response-content,
+    .search-results-content {
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        background-color: #fff;
+        padding: 10px;
+        border: 1px solid #eee;
+        border-radius: 3px;
+    }
+    pre, .token-stats {
+        margin: 0;
+        font-family: monospace;
+        white-space: pre-wrap;
+    }
+    .token-stats {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 5px 15px;
+    }
+    .token-stat {
+        display: contents;
+    }
+    .token-stat-label {
+        font-weight: bold;
+    }
+    .token-stat-value {
+        text-align: right;
+    }
+    
+    .search-query {
+        font-weight: bold;
+        color: #2c3e50;
+        margin: 10px 0 5px 0;
+    }
+    
+    .search-result {
+        margin: 8px 0;
+        padding: 8px;
+        background-color: #f8f9fa;
+        border-left: 3px solid #3498db;
+    }
+    
+    .search-result-title {
+        font-weight: 500;
+        color: #2980b9;
+        margin-bottom: 3px;
+    }
+    
+    .search-result-url {
+        font-size: 0.85em;
+        color: #7f8c8d;
+        word-break: break-all;
+    }
+    
+    .no-results {
+        color: #7f8c8d;
+        font-style: italic;
+    }
+</style>
 """
 
 
