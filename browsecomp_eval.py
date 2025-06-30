@@ -194,62 +194,38 @@ class BrowseCompEval(Eval):
                 if hasattr(sampler, 'token_counter') and sampler.token_counter is not None:
                     token_usage = sampler.token_counter.get_usage()
                 
-                # Extract search queries and results if available
+                # Extract search data from the response
                 search_data = []
-                tool_calls = getattr(sampler_response, 'tool_calls', None) or []
                 output = getattr(sampler_response, 'output', {})
                 
-                print(f"Processing response with {len(tool_calls)} tool calls and output: {output}")
+                print(f"Processing response with output: {output}")
                 
-                # Check for search results in the output
-                if isinstance(output, dict):
-                    # Handle search results from the output
-                    if 'search_results' in output and isinstance(output['search_results'], list):
-                        print(f"Found {len(output['search_results'])} search results in output")
-                        
-                        for search_result in output['search_results']:
-                            if not isinstance(search_result, dict):
-                                continue
-                                
-                            search_entry = {
-                                'query': search_result.get('query', 'Unknown query'),
-                                'status': search_result.get('status', 'completed'),
-                                'results': []
-                            }
-                            
-                            # Add any results if available
-                            if 'results' in search_result and isinstance(search_result['results'], list):
-                                for result in search_result['results']:
-                                    if isinstance(result, dict):
-                                        search_entry['results'].append({
-                                            'title': result.get('title', 'No title'),
-                                            'url': result.get('url', '#')
-                                        })
-                            
-                            search_data.append(search_entry)
+                # Process search data if available
+                if isinstance(output, dict) and 'search_data' in output and isinstance(output['search_data'], list):
+                    # Group search queries and results by timestamp for better organization
+                    search_queries = [item for item in output['search_data'] if item.get('type') == 'search_query']
+                    search_results = [item for item in output['search_data'] if item.get('type') == 'search_result']
                     
-                    # Also check for tool calls in the output for backward compatibility
-                    if 'tool_calls' in output and isinstance(output['tool_calls'], list):
-                        print(f"Found {len(output['tool_calls'])} tool calls in output")
-                        for i, tool_call in enumerate(output['tool_calls']):
-                            print(f"Processing output tool call {i}: {tool_call}")
-                            if tool_call.get('type') == 'web_search_preview':
-                                # Create or update search entry
-                                if not search_data:
-                                    search_data.append({
-                                        'query': tool_call.get('input', {}).get('query', 'Unknown query'),
-                                        'status': 'completed',
-                                        'results': []
-                                    })
-                                
-                                # Add results if available
-                                if 'output' in tool_call and isinstance(tool_call['output'], list):
-                                    for result in tool_call['output']:
-                                        if isinstance(result, dict):
-                                            search_data[-1]['results'].append({
-                                                'title': result.get('title', 'No title'),
-                                                'url': result.get('url', '#')
-                                            })
+                    print(f"Found {len(search_queries)} search queries and {len(search_results)} search results")
+                    
+                    # Create a search entry for each query
+                    for query in search_queries:
+                        search_entry = {
+                            'query': query.get('query', 'Unknown query'),
+                            'status': query.get('status', 'completed'),
+                            'timestamp': query.get('timestamp'),
+                            'results': []
+                        }
+                        search_data.append(search_entry)
+                    
+                    # Assign results to the most recent query (simple approach)
+                    # In a more sophisticated version, you could use timestamps to match results to queries
+                    for result in search_results:
+                        if search_data:  # If we have queries, assign to the most recent one
+                            search_data[-1]['results'].append({
+                                'title': result.get('title', 'Search Result'),
+                                'url': result.get('url', '#')
+                            })
                 
                 print(f"Final search data: {search_data}")  # Debug
                 

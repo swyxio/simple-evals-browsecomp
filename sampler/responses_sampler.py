@@ -110,61 +110,60 @@ class ResponsesSampler(SamplerBase):
                 tool_calls = []
                 output = {}
                 
-                # Process the response output to extract search results
+                # Extract search data from the response
                 if hasattr(response, 'output') and isinstance(response.output, list):
-                    search_results = []
+                    search_data = []
                     
-                    # First pass: collect all search queries
-                    search_queries = []
                     for item in response.output:
+                        # Handle search queries
                         if hasattr(item, 'action') and hasattr(item.action, 'query'):
-                            search_queries.append({
+                            search_data.append({
+                                'type': 'search_query',
                                 'query': item.action.query,
-                                'status': getattr(item, 'status', 'completed')
+                                'status': getattr(item, 'status', 'completed'),
+                                'timestamp': getattr(item, 'created_at', None)
                             })
-                    
-                    # Second pass: collect all search results from message content
-                    for item in response.output:
+                        
+                        # Handle search results (citations and content in the response)
                         if hasattr(item, 'content') and isinstance(item.content, list):
                             for content_item in item.content:
+                                # Handle URL citations (search results)
                                 if hasattr(content_item, 'annotations') and content_item.annotations:
-                                    # This is a search result with citations
                                     for annotation in content_item.annotations:
                                         if hasattr(annotation, 'type') and annotation.type == 'url_citation':
-                                            # Find the corresponding query
-                                            query = search_queries[0]['query'] if search_queries else 'Unknown query'
-                                            status = search_queries[0]['status'] if search_queries else 'completed'
+                                            # Extract the citation text if available
+                                            snippet = ''
+                                            if hasattr(annotation, 'start_index') and hasattr(annotation, 'end_index'):
+                                                try:
+                                                    snippet = content_item.text[annotation.start_index:annotation.end_index]
+                                                except (TypeError, IndexError):
+                                                    snippet = content_item.text[:200] + '...' if content_item.text else ''
                                             
-                                            # Create or update search result entry
-                                            search_result = next(
-                                                (sr for sr in search_results if sr['query'] == query),
-                                                None
-                                            )
-                                            
-                                            if not search_result:
-                                                search_result = {
-                                                    'type': 'web_search',
-                                                    'query': query,
-                                                    'status': status,
-                                                    'results': []
-                                                }
-                                                search_results.append(search_result)
-                                                if search_queries:  # Remove used query
-                                                    search_queries.pop(0)
-                                            
-                                            # Add the search result
-                                            search_result['results'].append({
+                                            search_data.append({
+                                                'type': 'search_result',
                                                 'title': getattr(annotation, 'title', 'Search Result'),
                                                 'url': getattr(annotation, 'url', '#'),
-                                                'snippet': content_item.text[annotation.start_index:annotation.end_index] 
-                                                          if hasattr(annotation, 'start_index') and hasattr(annotation, 'end_index')
-                                                          else content_item.text[:200] + '...'
+                                                'snippet': snippet,
+                                                'timestamp': getattr(item, 'created_at', None)
                                             })
+                                
+                                # Also include the full text as a search result if it contains URLs
+                                elif hasattr(content_item, 'text') and content_item.text and 'http' in content_item.text:
+                                    search_data.append({
+                                        'type': 'search_result',
+                                        'title': 'Search Result',
+                                        'url': '#',
+                                        'snippet': content_item.text[:500] + '...' if len(content_item.text) > 500 else content_item.text,
+                                        'timestamp': getattr(item, 'created_at', None),
+                                        'is_raw_text': True
+                                    })
                     
-                    # Store search results in the output
-                    if search_results:
-                        output['search_results'] = search_results
-                        print(f"Found {len(search_results)} search queries with {sum(len(sr.get('results', [])) for sr in search_results)} total results")
+                    # Store the raw search data in the output
+                    if search_data:
+                        output['search_data'] = search_data
+                        query_count = len([d for d in search_data if d['type'] == 'search_query'])
+                        result_count = len([d for d in search_data if d['type'] == 'search_result'])
+                        print(f"Collected {query_count} search queries and {result_count} search results")
                 
                 # Extract tool calls from the response
                 if hasattr(response, 'tool_calls') and response.tool_calls:

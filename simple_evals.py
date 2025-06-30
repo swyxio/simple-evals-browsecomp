@@ -218,8 +218,8 @@ def main():
         # ),
         "gpt-4.1-mini": ResponsesSampler(
             model="gpt-4.1-mini-2025-04-14",
-            enable_web_search=True
-            # system_message=OPENAI_SYSTEM_MESSAGE_API,
+            enable_web_search=True,
+            system_message="You are a helpful assistant answering trivia questions you don't have the direct answers to in your knowledge. Always use the web search tool you have, but think step by step and break down the problem so that you dont make too complex of a search. search in stages and gather information as you go.",
             # max_tokens=2048,
         ),
         # "gpt-4.1-nano": ChatCompletionSampler(
