@@ -72,7 +72,7 @@ class BrowseCompEval(Eval):
         examples = [row.to_dict() for _, row in df.iterrows()]
         if num_examples:
             assert n_repeats == 1, "n_repeats only supported when max_examples = None"
-            rng = random.Random(0)
+            rng = random.Random(45)
             examples = rng.sample(examples, num_examples)
         
         self.examples = examples * n_repeats
@@ -187,6 +187,12 @@ class BrowseCompEval(Eval):
                 is_correct = grade_result == "yes"
                 is_incorrect = grade_result == "no"
                 
+                # Debug print
+                print(f"\n=== METRICS FOR SAMPLE ===")
+                print(f"Grade result: {grade_result}")
+                print(f"is_correct: {is_correct}")
+                print(f"is_incorrect: {is_incorrect}")
+                
                 score = is_correct
 
                 # Get token usage if available
@@ -285,7 +291,13 @@ class BrowseCompEval(Eval):
             # Aggregate metrics
             total = len(results)
             correct = sum(1 for r in results if r.metrics["is_correct"])
-            incorrect = total - correct
+            incorrect = sum(1 for r in results if r.metrics["is_incorrect"])
+            
+            # Debug print
+            print("\n=== AGGREGATION DEBUG ===")
+            print(f"Total results: {total}")
+            print(f"Correct count: {correct}")
+            print(f"Incorrect count: {incorrect}")
             
             aggregate_metrics = {
                 "is_correct": correct / total if total > 0 else 0.0,

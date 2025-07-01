@@ -139,6 +139,61 @@ def main():
         #     model="o3-2025-04-16",
         #     reasoning_model=True,
         # ),
+#         "o3": ResponsesSampler(
+#             model="o3-2025-04-16",
+#             system_message="""You are a research assistant helping answer questions through web search. Follow these guidelines:
+
+# 1. Break down complex questions into focused, atomic search queries (10-12 words max)
+# 2. Use clear, simple keywords instead of full sentences
+# 3. Avoid multiple concepts in a single query
+# 4. Use specific, concrete terms over vague ones
+# 5. Start with broad searches and narrow down based on results
+# 6. Use quotes for exact phrases when needed
+# 7. Include date ranges when relevant
+# 8. Use site: operator for known reliable sources
+# 9. Search for specific facts one at a time
+# 10. Verify information from multiple sources
+
+# For example, instead of:
+# "two narratives origins potato human awareness stone tools rituals divine medicinal remedy poverty rural 1940s study body composition controlled intake 12 weeks documented use first person article"
+
+# Search for:
+# - "origin of potato cultivation"
+# - "potato history archaeological evidence"
+# - "medicinal uses of potatoes history"
+# - "potato nutritional studies 20th century"
+
+# Be precise, focused, and methodical in your search strategy.""",
+#             reasoning_model=True,
+#             enable_web_search=True,  # Enable web search for this model
+#         ),
+        "o3-dr": ResponsesSampler(
+            model="o3-deep-research-2025-06-26",
+            system_message="""You are a research assistant helping answer questions through web search. Follow these guidelines:
+
+1. Break down complex questions into focused, atomic search queries (5-10 words max)
+2. Use clear, simple keywords instead of full sentences
+3. Avoid multiple concepts in a single query
+4. Use specific, concrete terms over vague ones
+5. Start with broad theories for what you are looking for and only slowly narrow down based on results
+6. Use quotes for exact phrases only when needed
+7. Include date ranges when relevant
+8. Use site: operator for known reliable sources
+9. Search for specific facts one at a time
+
+For example, instead of:
+"two narratives origins potato human awareness stone tools rituals divine medicinal remedy poverty rural 1940s study body composition controlled intake 12 weeks documented use first person article"
+
+Search for:
+- "origin of potato cultivation"
+- "potato history archaeological evidence"
+- "medicinal uses of potatoes history"
+- "potato nutritional studies 20th century"
+
+Be precise, focused, and methodical in your search strategy.""",
+            reasoning_model=True,
+            enable_web_search=True,  # Enable web search for this model
+        ),
         # # "o3-temp-1": ResponsesSampler(
         # #     model="o3-2025-04-16",
         # #     reasoning_model=True,
@@ -154,12 +209,64 @@ def main():
         #     reasoning_model=True,
         #     reasoning_effort="low",
         # ),
-        # # # # Default == Medium
-        # "o4-mini": ResponsesSampler(
-        #     model="o4-mini-2025-04-16",
-        #     reasoning_model=True,
-        #     enable_web_search=True,  # Enable web search for this model
-        # ),
+#         # # # Default == Medium
+#         "o4-mini": ResponsesSampler(
+#             model="o4-mini-2025-04-16",
+#             system_message="""You are a research assistant helping answer questions through web search. Follow these guidelines:
+
+# 1. Break down complex questions into focused, atomic search queries (10-12 words max)
+# 2. Use clear, simple keywords instead of full sentences
+# 3. Avoid multiple concepts in a single query
+# 4. Use specific, concrete terms over vague ones
+# 5. Start with broad searches and narrow down based on results
+# 6. Use quotes for exact phrases when needed
+# 7. Include date ranges when relevant
+# 8. Use site: operator for known reliable sources
+# 9. Search for specific facts one at a time
+# 10. Verify information from multiple sources
+
+# For example, instead of:
+# "two narratives origins potato human awareness stone tools rituals divine medicinal remedy poverty rural 1940s study body composition controlled intake 12 weeks documented use first person article"
+
+# Search for:
+# - "origin of potato cultivation"
+# - "potato history archaeological evidence"
+# - "medicinal uses of potatoes history"
+# - "potato nutritional studies 20th century"
+
+# Be precise, focused, and methodical in your search strategy.""",
+#             reasoning_model=True,
+#             enable_web_search=True,  # Enable web search for this model
+#         ),
+#         # # # Default == Medium
+#         "o4-mini": ResponsesSampler(
+#             model="o4-mini-deep-research-2025-06-26",
+#             system_message="""You are a research assistant helping answer questions through web search. Follow these guidelines:
+
+# 1. Break down complex questions into focused, atomic search queries (10-12 words max)
+# 2. Use clear, simple keywords instead of full sentences
+# 3. Avoid multiple concepts in a single query
+# 4. Use specific, concrete terms over vague ones
+# 5. Start with broad searches and narrow down based on results
+# 6. Use quotes for exact phrases when needed
+# 7. Include date ranges when relevant
+# 8. Use site: operator for known reliable sources
+# 9. Search for specific facts one at a time
+# 10. Verify information from multiple sources
+
+# For example, instead of:
+# "two narratives origins potato human awareness stone tools rituals divine medicinal remedy poverty rural 1940s study body composition controlled intake 12 weeks documented use first person article"
+
+# Search for:
+# - "origin of potato cultivation"
+# - "potato history archaeological evidence"
+# - "medicinal uses of potatoes history"
+# - "potato nutritional studies 20th century"
+
+# Be precise, focused, and methodical in your search strategy.""",
+#             reasoning_model=True,
+#             enable_web_search=True,  # Enable web search for this model
+#         ),
         # "o4-mini_high": ResponsesSampler(
         #     model="o4-mini-2025-04-16",
         #     reasoning_model=True,
@@ -203,7 +310,13 @@ def main():
         #     model="o3-mini",
         #     reasoning_effort="low",
         # ),
-        # GPT-4.1 models
+        # # GPT-4.1 models
+        # "gpt-4.1": ResponsesSampler(
+        #     model="gpt-4.1-2025-04-14",
+        #     enable_web_search=True,
+        #     system_message="You are a helpful assistant answering trivia questions you don't have the direct answers to in your knowledge. Always use the web search tool you have, but think step by step and break down the problem so that you dont make too complex of a search. search in stages and gather information as you go.",
+        #     # max_tokens=2048,
+        # ),
         # "gpt-4.1": ChatCompletionSampler(
         #     model="gpt-4.1-2025-04-14",
         #     system_message=OPENAI_SYSTEM_MESSAGE_API,
@@ -216,12 +329,12 @@ def main():
         #     max_tokens=2048,
         #     temperature=1.0,
         # ),
-        "gpt-4.1-mini": ResponsesSampler(
-            model="gpt-4.1-mini-2025-04-14",
-            enable_web_search=True,
-            system_message="You are a helpful assistant answering trivia questions you don't have the direct answers to in your knowledge. Always use the web search tool you have, but think step by step and break down the problem so that you dont make too complex of a search. search in stages and gather information as you go.",
-            # max_tokens=2048,
-        ),
+        # "gpt-4.1-mini": ResponsesSampler(
+        #     model="gpt-4.1-mini-2025-04-14",
+        #     enable_web_search=True,
+        #     system_message="You are a helpful assistant answering trivia questions you don't have the direct answers to in your knowledge. Always use the web search tool you have, but think step by step and break down the problem so that you dont make too complex of a search. search in stages and gather information as you go.",
+        #     # max_tokens=2048,
+        # ),
         # "gpt-4.1-nano": ChatCompletionSampler(
         #     model="gpt-4.1-nano-2025-04-14",
         #     system_message=OPENAI_SYSTEM_MESSAGE_API,
@@ -342,8 +455,8 @@ def main():
             case "browsecomp":
                 return BrowseCompEval(
                     grader_model=grading_sampler,
-                    # num_examples=10 if debug_mode else num_examples,
-                    num_examples=2 if debug_mode else num_examples,
+                    num_examples=10 if debug_mode else num_examples,
+                    # num_examples=2 if debug_mode else num_examples,
                 )
             case _:
                 raise Exception(f"Unrecognized eval type: {eval_name}")
